@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Banco de Horas</title>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--tx:#1b1f24;--mut:#6b7280;--bd:#e3e6ea;--pos:#0a8f4e;--neg:#d23b3b;--ac:#2563eb;--acs:#e8efff;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#14161a;--card:#1e2126;--tx:#eceff3;--mut:#9aa3af;--bd:#2d3239;--pos:#3ecf8e;--neg:#ff7070;--ac:#6b9cff;--acs:#243049;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#14161a;--card:#1e2126;--tx:#eceff3;--mut:#9aa3af;--bd:#2d3239;--pos:#3ecf8e;--neg:#ff7070;--ac:#6b9cff;--acs:#243049;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}
+.w{max-width:620px;margin:0 auto;padding:14px}
+.tabs{display:flex;background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:4px;gap:4px;margin-bottom:14px}
+.tabs button{flex:1;border:0;background:transparent;padding:9px 4px;border-radius:9px;font-weight:600;color:var(--mut)}
+.tabs button.on{background:var(--ac);color:#fff}
+button{background:var(--card);color:var(--tx);border:1px solid var(--bd);border-radius:10px;padding:8px 14px;font:inherit;cursor:pointer}
+.v{display:none}.v.on{display:block}
+.hd{font-size:13px;color:var(--mut);text-transform:uppercase;letter-spacing:.04em}
+.dt{font-size:22px;font-weight:700;margin:2px 0 12px;text-transform:capitalize}
+.hero{background:var(--card);border:2px solid var(--ac);border-radius:16px;padding:14px;margin-bottom:12px}
+.bigl{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:12px}
+.bigl small{color:var(--mut);display:block}
+.big{font-size:34px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1.1}
+.pos{color:var(--pos)}.neg{color:var(--neg)}
+.g{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.g label{font-size:12px;color:var(--mut);display:block;margin-bottom:3px}
+input,select,textarea{width:100%;background:var(--bg);color:var(--tx);border:1px solid var(--bd);border-radius:10px;padding:10px 8px;font:inherit;font-size:17px}
+.ag{margin-top:5px;width:100%;padding:6px;font-size:13px;background:var(--acs);color:var(--ac);border-color:transparent;font-weight:600}
+select{font-size:14px;padding:8px;margin-top:12px}
+.prev{margin-top:12px;background:var(--acs);color:var(--tx);border-radius:10px;padding:10px;font-size:14px;display:none}
+.sum{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.box{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:12px}
+.box small{color:var(--mut);display:block}
+.box .big{font-size:24px}
+.nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.nav b{font-size:17px;text-transform:capitalize}
+.h{display:flex;justify-content:space-between;align-items:center;background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:10px 12px;margin-bottom:6px;cursor:pointer}
+.h.td{border-color:var(--ac)}
+.h .l{font-weight:600}
+.h .m{color:var(--mut);font-size:13px;font-variant-numeric:tabular-nums}
+.h .r{font-weight:700;font-variant-numeric:tabular-nums;text-align:right}
+.h .r small{display:block;color:var(--mut);font-weight:400;font-size:12px}
+.vazio{color:var(--mut)}
+details{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:10px;margin-bottom:12px}
+summary{cursor:pointer;font-weight:600}
+.cf{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:10px 0}
+.cf input{font-size:14px;padding:7px 3px}
+.row{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+.hint{color:var(--mut);font-size:12px;margin-top:6px}
+</style>
+</head>
+<body>
+<div class="w">
+<div class="tabs"><button data-t="hoje" class="on">Hoje</button><button data-t="hist">Histórico</button><button data-t="cfg">Ajustes</button></div>
+
+<div class="v on" id="v-hoje">
+ <div class="hd" id="lbl">Hoje</div>
+ <div class="dt" id="dt"></div>
+ <div class="hero">
+  <div class="bigl"><div><small>Saldo do dia</small><div class="big" id="sd">--</div></div><div style="text-align:right"><small>Trabalhado</small><div style="font-size:20px;font-weight:700" id="wk">--</div></div></div>
+  <div class="g" id="in"></div>
+  <select id="kind"><option value="n">Dia normal</option><option value="x">Feriado / atestado (não desconta)</option><option value="b">Folga do banco de horas (desconta)</option><option value="f">Falta</option></select>
+  <div class="prev" id="prev"></div>
+  <div class="row" id="back" style="display:none"><button id="bk0">Voltar para hoje</button></div>
+ </div>
+ <div class="sum">
+  <div class="box"><small id="ml">Saldo do mês</small><div class="big" id="sm">--</div></div>
+  <div class="box"><small>Banco de horas total</small><div class="big" id="st">--</div></div>
+ </div>
+</div>
+
+<div class="v" id="v-hist">
+ <div class="nav"><button id="pv">&larr;</button><b id="mn"></b><button id="nx">&rarr;</button></div>
+ <div class="sum">
+  <div class="box"><small>Saldo do mês</small><div class="big" id="hm">--</div></div>
+  <div class="box"><small>Horas trabalhadas</small><div class="big" id="hw">--</div></div>
+ </div>
+ <div id="list"></div>
+ <div class="hint">Toque em um dia para editar.</div>
+</div>
+
+<div class="v" id="v-cfg">
+ <details open><summary>Jornada esperada</summary>
+ <div class="hint">Horas por dia da semana (HH:MM). Deixe 00:00 para folga.</div>
+ <div class="cf" id="cf"></div>
+ <div class="hint">Saldo inicial do banco (ex.: +10:30 ou -02:15), se já tiver horas acumuladas.</div>
+ <input id="ini" placeholder="+00:00" style="margin-top:6px">
+ </details>
+ <details><summary>Backup</summary>
+ <div class="hint" id="sync" style="font-weight:600">Salvo só neste aparelho</div>
+ <div class="hint">Backup manual extra, se quiser: gere o texto e guarde nas suas notas.</div>
+ <textarea id="bk" rows="4" style="font-size:13px"></textarea>
+ <div class="row"><button id="gb">Gerar backup</button><button id="rb">Restaurar</button></div>
+ </details>
+</div>
+</div>
+
+<script>
+var DN=["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"];
+var S={cfg:{exp:[0,480,480,480,480,480,0],init:0},days:{}};
+try{var r0=localStorage.getItem("bh1");if(r0)S=JSON.parse(r0)}catch(e){}
+function $(i){return document.getElementById(i)}
+var dbDoc=null,syncT=null;
+function setSt(t){var e=$("sync");if(e)e.textContent=t}
+function save(){S.u=Date.now();try{localStorage.setItem("bh1",JSON.stringify(S))}catch(e){}push()}
+function push(){
+ if(!dbDoc)return;clearTimeout(syncT);setSt("Sincronizando...");
+ syncT=setTimeout(function(){
+  dbDoc.set({json:JSON.stringify(S),u:S.u||0}).then(function(){setSt("Salvo na nuvem ✓")},function(){setSt("Não consegui salvar na nuvem. Os dados continuam salvos neste aparelho.")});
+ },800);
+}
+function p2(n){return n<10?"0"+n:""+n}
+function key(d){return d.getFullYear()+"-"+p2(d.getMonth()+1)+"-"+p2(d.getDate())}
+function pk(k){var a=k.split("-");return new Date(+a[0],+a[1]-1,+a[2])}
+function tm(s){if(!s)return null;var a=s.split(":");return +a[0]*60+ +a[1]}
+function fm(m,sg){var s=m<0?"-":(sg&&m>0?"+":"");m=Math.abs(m);return s+p2(Math.floor(m/60))+":"+p2(m%60)}
+function pm(s){s=(s||"").trim();if(!s)return 0;var n=s[0]=="-"?-1:1;s=s.replace(/[+-]/,"");var a=s.split(":");return n*((+a[0]||0)*60+(+a[1]||0))}
+function paint(el,v){el.textContent=fm(v,true);el.className=el.className.replace(/ ?(pos|neg)/g,"")+(v>0?" pos":v<0?" neg":"")}
+function recOf(k){return S.days[k]||{t:["","","",""],k:"n"}}
+function calc(k){
+ var rec=recOf(k),dt=pk(k),exp=rec.k=="x"?0:S.cfg.exp[dt.getDay()];
+ if(rec.k=="f")return{w:0,exp:exp,s:-exp};
+ var t=rec.t.map(tm),w=null;
+ if(t[0]!=null&&t[3]!=null){
+  if(t[1]!=null&&t[2]!=null)w=(t[1]-t[0])+(t[3]-t[2]);
+  else if(t[1]==null&&t[2]==null)w=t[3]-t[0];
+ }
+ if(w==null&&rec.k=="b")w=0;return w==null?null:{w:w,exp:exp,s:w-exp};
+}
+function totals(y,m){
+ var mo=0,wk=0,all=S.cfg.init,pre=y+"-"+p2(m+1);
+ for(var k in S.days){var c=calc(k);if(c){all+=c.s;if(k.indexOf(pre)==0){mo+=c.s;wk+=c.w}}}
+ return{mo:mo,wk:wk,all:all};
+}
+var today=key(new Date()),sel=today,cur=new Date();cur=new Date(cur.getFullYear(),cur.getMonth(),1);
+
+function tab(n){
+ ["hoje","hist","cfg"].forEach(function(x){$("v-"+x).className="v"+(x==n?" on":"")});
+ var b=document.querySelectorAll(".tabs button");for(var i=0;i<b.length;i++)b[i].className=b[i].getAttribute("data-t")==n?"on":"";
+ if(n=="hist")renderHist();
+ if(n=="hoje")renderToday();
+}
+document.querySelector(".tabs").onclick=function(e){var t=e.target.getAttribute("data-t");if(t)tab(t)};
+
+// HOJE
+var LB=["Entrada","Saída almoço","Volta almoço","Saída"];
+(function(){var h="";for(var i=0;i<4;i++)h+='<div><label>'+LB[i]+'</label><input type="time" data-i="'+i+'"><button class="ag" data-a="'+i+'">Agora</button></div>';$("in").innerHTML=h})();
+function renderToday(){
+ var d=pk(sel),rec=recOf(sel);
+ $("lbl").textContent=sel==today?"Hoje":"Editando";
+ $("dt").textContent=d.toLocaleDateString("pt-BR",{weekday:"long",day:"numeric",month:"long"});
+ var ins=$("in").querySelectorAll("input");for(var i=0;i<4;i++)ins[i].value=rec.t[i];
+ $("kind").value=rec.k;
+ $("back").style.display=sel==today?"none":"flex";
+ updToday();
+}
+function updToday(){
+ var rec=recOf(sel),c=calc(sel),d=pk(sel);
+ if(c){paint($("sd"),c.s);$("wk").textContent=fm(c.w)}else{$("sd").textContent="--";$("sd").className="big";$("wk").textContent="--"}
+ var p=$("prev"),t=rec.t.map(tm),exp=rec.k=="x"?0:S.cfg.exp[d.getDay()];
+ if(rec.k=="n"&&t[0]!=null&&t[1]!=null&&t[2]!=null&&t[3]==null&&exp>0){
+  var out=t[2]+(exp-(t[1]-t[0]));p.style.display="block";p.textContent="Saída para zerar o dia: "+fm(out%1440)+" (jornada de "+fm(exp)+")";
+ }else if(rec.k=="n"&&t[0]!=null&&t[1]==null&&t[3]==null&&exp>0){
+  p.style.display="block";p.textContent="Jornada de hoje: "+fm(exp)+" (sem contar o almoço)";
+ }else p.style.display="none";
+ var d0=pk(sel),tt=totals(d0.getFullYear(),d0.getMonth());
+ paint($("sm"),tt.mo);paint($("st"),tt.all);
+ $("ml").textContent="Saldo de "+d0.toLocaleDateString("pt-BR",{month:"long"});
+}
+function setT(i,v){
+ var rec=S.days[sel]||(S.days[sel]={t:["","","",""],k:"n"});rec.t[i]=v;
+ if(rec.k=="n"&&rec.t.join("")==="")delete S.days[sel];
+ save();updToday();
+}
+$("in").oninput=function(e){var i=e.target.getAttribute("data-i");if(i!=null)setT(+i,e.target.value)};
+$("in").onclick=function(e){
+ var a=e.target.getAttribute("data-a");if(a==null)return;
+ var n=new Date(),v=p2(n.getHours())+":"+p2(n.getMinutes());
+ $("in").querySelectorAll("input")[+a].value=v;setT(+a,v);
+};
+$("kind").onchange=function(){
+ var rec=S.days[sel]||(S.days[sel]={t:["","","",""],k:"n"});rec.k=$("kind").value;
+ if(rec.k=="n"&&rec.t.join("")==="")delete S.days[sel];
+ save();updToday();
+};
+$("bk0").onclick=function(){sel=today;renderToday()};
+
+// HISTÓRICO
+function renderHist(){
+ var y=cur.getFullYear(),m=cur.getMonth(),dim=new Date(y,m+1,0).getDate(),h="";
+ $("mn").textContent=cur.toLocaleDateString("pt-BR",{month:"long",year:"numeric"});
+ var tt=totals(y,m);paint($("hm"),tt.mo);$("hw").textContent=fm(tt.wk);$("hw").className="big";
+ for(var d=dim;d>=1;d--){
+  var dt=new Date(y,m,d),k=key(dt);
+  if(k>today)continue;
+  var rec=S.days[k],c=calc(k),we=dt.getDay()==0||dt.getDay()==6;
+  if(!rec&&we)continue;
+  var lbl=p2(d)+" · "+DN[dt.getDay()],mid,right;
+  if(rec&&rec.k=="x"){mid="Feriado / atestado"}
+  else if(rec&&rec.k=="b"){mid="Folga do banco de horas"+(rec.t.join("")?" · "+rec.t.map(function(x){return x||"--:--"}).join(" "):"")}
+  else if(rec&&rec.k=="f"){mid="Falta"}
+  else if(rec){mid=rec.t.map(function(x){return x||"--:--"}).join("  ")}
+  else mid='<span class="vazio">sem lançamento</span>';
+  if(c){var cls=c.s>0?"pos":c.s<0?"neg":"";right='<span class="'+cls+'">'+fm(c.s,true)+'</span><small>'+fm(c.w)+'</small>'}
+  else right='<span class="vazio">--</span>';
+  h+='<div class="h'+(k==today?" td":"")+'" data-k="'+k+'"><div><div class="l">'+lbl+'</div><div class="m">'+mid+'</div></div><div class="r">'+right+'</div></div>';
+ }
+ $("list").innerHTML=h||'<div class="hint">Nenhum dia neste mês ainda.</div>';
+}
+$("list").onclick=function(e){var r=e.target.closest(".h");if(r){sel=r.getAttribute("data-k");tab("hoje");window.scrollTo(0,0)}};
+$("pv").onclick=function(){cur=new Date(cur.getFullYear(),cur.getMonth()-1,1);renderHist()};
+$("nx").onclick=function(){cur=new Date(cur.getFullYear(),cur.getMonth()+1,1);renderHist()};
+
+// AJUSTES
+var ch="";for(var i=0;i<7;i++)ch+='<div><label class="hint">'+DN[i]+'</label><input type="time" data-w="'+i+'" value="'+fm(S.cfg.exp[i])+'"></div>';
+$("cf").innerHTML=ch;
+$("cf").oninput=function(e){var i=e.target.getAttribute("data-w");if(i==null)return;S.cfg.exp[+i]=tm(e.target.value)||0;save();updToday()};
+$("ini").value=fm(S.cfg.init,true);
+$("ini").onchange=function(){S.cfg.init=pm($("ini").value);$("ini").value=fm(S.cfg.init,true);save();updToday()};
+$("gb").onclick=function(){$("bk").value=JSON.stringify(S);$("bk").select()};
+$("rb").onclick=function(){try{var o=JSON.parse($("bk").value);if(!o.cfg||!o.days)throw 0;S=o;save();location.reload()}catch(e){$("bk").value="Backup inválido. Cole aqui o texto gerado antes."}};
+
+function refreshAll(){
+ var ii=$("cf").querySelectorAll("input");for(var i=0;i<7;i++)ii[i].value=fm(S.cfg.exp[i]);
+ $("ini").value=fm(S.cfg.init,true);renderToday();renderHist();
+}
+(async function(){
+ try{
+  if(typeof claude=="undefined"||!claude.use)return;
+  var user=await claude.use("user"),db=await claude.use("db");
+  if(!db||!user){setSt("Nuvem indisponível. Salvo só neste aparelho.");return}
+  var id=await user.id();
+  if(!id){setSt("Nuvem indisponível. Salvo só neste aparelho.");return}
+  dbDoc=db.collection("data/users/"+id).doc("bh");
+  var snap=await dbDoc.get(),rd=snap.exists?snap.data():null;
+  var ru=(rd&&rd.u)||0,lu=S.u||0;
+  if(rd&&rd.json&&ru>lu){
+   S=JSON.parse(rd.json);try{localStorage.setItem("bh1",JSON.stringify(S))}catch(e){}
+   refreshAll();setSt("Salvo na nuvem ✓ (dados carregados)");
+  }else if(!rd||lu>ru){
+   if(!S.u)S.u=Date.now();push();
+  }else setSt("Salvo na nuvem ✓");
+ }catch(e){setSt("Nuvem indisponível. Salvo só neste aparelho.")}
+})();
+renderToday();
+</script>
+</body>
+</html>
