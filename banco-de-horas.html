@@ -49,11 +49,18 @@ summary{cursor:pointer;font-weight:600}
 .cf input{font-size:14px;padding:7px 3px}
 .row{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
 .hint{color:var(--mut);font-size:12px;margin-top:6px}
+.tabs button{font-size:14px;padding:9px 2px}
+@media print{
+:root,:root:not([data-theme="light"]),:root[data-theme="dark"]{--bg:#fff;--card:#fff;--tx:#000;--mut:#555;--bd:#bbb;--pos:#0a7a44;--neg:#c22;--ac:#000;color-scheme:light}
+.tabs,.row,.g,#rtx,.np{display:none!important}
+.w{max-width:100%;padding:0}
+.box,.h{break-inside:avoid}
+}
 </style>
 </head>
 <body>
 <div class="w">
-<div class="tabs"><button data-t="hoje" class="on">Hoje</button><button data-t="hist">Histórico</button><button data-t="cfg">Ajustes</button></div>
+<div class="tabs"><button data-t="hoje" class="on">Hoje</button><button data-t="hist">Histórico</button><button data-t="rel">Relatório</button><button data-t="cfg">Ajustes</button></div>
 
 <div class="v on" id="v-hoje">
  <div class="hd" id="lbl">Hoje</div>
@@ -81,12 +88,23 @@ summary{cursor:pointer;font-weight:600}
  <div class="hint">Toque em um dia para editar.</div>
 </div>
 
+<div class="v" id="v-rel">
+ <div class="g"><div><label>De</label><input type="date" id="rd1"></div><div><label>Até</label><input type="date" id="rd2"></div></div>
+ <div class="row"><button id="rm0">Mês atual</button><button id="rm1">Mês anterior</button></div>
+ <div id="rbox" style="margin-top:14px"></div>
+ <div class="row"><button id="rpr">Imprimir / salvar PDF</button><button id="rcp">Copiar texto</button></div>
+ <div class="hint">Só entram dias até hoje. No "Imprimir", escolha "Salvar como PDF" para guardar o relatório.</div>
+ <textarea id="rtx" rows="8" style="display:none;font-size:13px;margin-top:8px"></textarea>
+</div>
+
 <div class="v" id="v-cfg">
  <details open><summary>Jornada esperada</summary>
  <div class="hint">Horas por dia da semana (HH:MM). Deixe 00:00 para folga.</div>
  <div class="cf" id="cf"></div>
  <div class="hint">Saldo inicial do banco (ex.: +10:30 ou -02:15), se já tiver horas acumuladas.</div>
  <input id="ini" placeholder="+00:00" style="margin-top:6px">
+ <div class="hint" style="margin-top:12px">Nome do profissional (aparece no relatório impresso).</div>
+ <input id="nm" placeholder="Nome completo" style="margin-top:6px">
  </details>
  <details><summary>Backup</summary>
  <div class="hint" id="sync" style="font-weight:600">Salvo só neste aparelho</div>
@@ -137,9 +155,10 @@ function totals(y,m){
 var today=key(new Date()),sel=today,cur=new Date();cur=new Date(cur.getFullYear(),cur.getMonth(),1);
 
 function tab(n){
- ["hoje","hist","cfg"].forEach(function(x){$("v-"+x).className="v"+(x==n?" on":"")});
+ ["hoje","hist","rel","cfg"].forEach(function(x){$("v-"+x).className="v"+(x==n?" on":"")});
  var b=document.querySelectorAll(".tabs button");for(var i=0;i<b.length;i++)b[i].className=b[i].getAttribute("data-t")==n?"on":"";
  if(n=="hist")renderHist();
+ if(n=="rel")renderRel();
  if(n=="hoje")renderToday();
 }
 document.querySelector(".tabs").onclick=function(e){var t=e.target.getAttribute("data-t");if(t)tab(t)};
@@ -213,18 +232,68 @@ $("list").onclick=function(e){var r=e.target.closest(".h");if(r){sel=r.getAttrib
 $("pv").onclick=function(){cur=new Date(cur.getFullYear(),cur.getMonth()-1,1);renderHist()};
 $("nx").onclick=function(){cur=new Date(cur.getFullYear(),cur.getMonth()+1,1);renderHist()};
 
+// RELATÓRIO
+function br(k){var a=k.split("-");return a[2]+"/"+a[1]+"/"+a[0]}
+function setMonth(off){var n=new Date(),f=new Date(n.getFullYear(),n.getMonth()+off,1),l=new Date(n.getFullYear(),n.getMonth()+off+1,0);$("rd1").value=key(f);$("rd2").value=key(l);renderRel()}
+var relTxt="";
+function renderRel(){
+ if(!$("rd1").value||!$("rd2").value){setMonth(0);return}
+ var a=$("rd1").value,b=$("rd2").value,box=$("rbox");
+ if(a>b){box.innerHTML='<div class="hint">A data inicial precisa ser anterior à final.</div>';relTxt="";return}
+ var W=0,E=0,Sd=0,dias=0,fb=0,fa=0,fx=0,sl=0,rows="",ln=[],d=pk(a);
+ while(key(d)<=b){
+  var k=key(d);
+  if(k<=today){
+   var rec=S.days[k],c=calc(k),we=d.getDay()==0||d.getDay()==6,miss=!rec&&!we&&S.cfg.exp[d.getDay()]>0&&k<today;
+   if(c){W+=c.w;E+=c.exp;Sd+=c.s;if(c.w>0)dias++}
+   if(rec&&rec.k=="b")fb++;
+   if(rec&&rec.k=="f")fa++;
+   if(rec&&rec.k=="x")fx++;
+   if(miss)sl++;
+   if(rec||miss){
+    var lbl=p2(d.getDate())+"/"+p2(d.getMonth()+1)+" · "+DN[d.getDay()],mid;
+    if(rec&&rec.k=="x")mid="Feriado / atestado";
+    else if(rec&&rec.k=="f")mid="Falta";
+    else if(rec&&rec.k=="b")mid="Folga do banco de horas"+(rec.t.join("")?" · "+rec.t.map(function(x){return x||"--:--"}).join(" "):"");
+    else if(rec)mid=rec.t.map(function(x){return x||"--:--"}).join("  ");
+    else mid="sem lançamento";
+    var rs=c?fm(c.s,true):"--";
+    rows+='<div class="h"><div><div class="l">'+lbl+'</div><div class="m">'+mid+'</div></div><div class="r"><span class="'+(c&&c.s>0?"pos":c&&c.s<0?"neg":"")+'">'+rs+'</span><small>'+(c?fm(c.w):"")+'</small></div></div>';
+    ln.push(lbl+" | "+mid+" | trabalhado "+(c?fm(c.w):"--")+" | saldo "+rs);
+   }
+  }
+  d.setDate(d.getDate()+1);
+ }
+ var all=S.cfg.init;
+ for(var kk in S.days){if(kk<=b){var cc=calc(kk);if(cc)all+=cc.s}}
+ var sc=Sd>0?"pos":Sd<0?"neg":"",ac=all>0?"pos":all<0?"neg":"";
+ var nmh=S.cfg.name?'<div style="font-size:20px;font-weight:700;margin-bottom:2px">'+S.cfg.name.replace(/&/g,"&amp;").replace(/</g,"&lt;")+'</div>':'<div class="hint np">Informe o nome do profissional em Ajustes para ele aparecer no relatório.</div>';
+ box.innerHTML='<div class="hd">Relatório de horas</div>'+nmh+'<div class="dt" style="font-size:18px;text-transform:none">'+br(a)+' a '+br(b)+'</div>'
+  +'<div class="sum"><div class="box"><small>Saldo do período</small><div class="big '+sc+'">'+fm(Sd,true)+'</div></div><div class="box"><small>Banco acumulado até '+br(b)+'</small><div class="big '+ac+'">'+fm(all,true)+'</div></div></div>'
+  +'<div class="sum"><div class="box"><small>Trabalhadas</small><div class="big">'+fm(W)+'</div><small>de '+fm(E)+' esperadas</small></div><div class="box"><small>Ocorrências</small><div style="font-size:14px;line-height:1.6">Dias trabalhados: <b>'+dias+'</b><br>Folgas do banco: <b>'+fb+'</b><br>Faltas: <b>'+fa+'</b><br>Feriado/atestado: <b>'+fx+'</b><br>Sem lançamento: <b>'+sl+'</b></div></div></div>'
+  +rows;
+ relTxt="RELATÓRIO DE HORAS\n"+(S.cfg.name?"Profissional: "+S.cfg.name+"\n":"")+"Período: "+br(a)+" a "+br(b)+"\nSaldo do período: "+fm(Sd,true)+"\nBanco acumulado até "+br(b)+": "+fm(all,true)+"\nTrabalhadas: "+fm(W)+" de "+fm(E)+" esperadas\nDias trabalhados: "+dias+" | Folgas do banco: "+fb+" | Faltas: "+fa+" | Feriado/atestado: "+fx+" | Sem lançamento: "+sl+"\n\n"+ln.join("\n");
+}
+$("rd1").onchange=renderRel;$("rd2").onchange=renderRel;
+$("rm0").onclick=function(){setMonth(0)};
+$("rm1").onclick=function(){setMonth(-1)};
+$("rpr").onclick=function(){window.print()};
+$("rcp").onclick=function(){var t=$("rtx");t.style.display="block";t.value=relTxt;t.select();try{document.execCommand("copy")}catch(e){}};
+
 // AJUSTES
 var ch="";for(var i=0;i<7;i++)ch+='<div><label class="hint">'+DN[i]+'</label><input type="time" data-w="'+i+'" value="'+fm(S.cfg.exp[i])+'"></div>';
 $("cf").innerHTML=ch;
 $("cf").oninput=function(e){var i=e.target.getAttribute("data-w");if(i==null)return;S.cfg.exp[+i]=tm(e.target.value)||0;save();updToday()};
 $("ini").value=fm(S.cfg.init,true);
 $("ini").onchange=function(){S.cfg.init=pm($("ini").value);$("ini").value=fm(S.cfg.init,true);save();updToday()};
+$("nm").value=S.cfg.name||"";
+$("nm").onchange=function(){S.cfg.name=$("nm").value.trim();save()};
 $("gb").onclick=function(){$("bk").value=JSON.stringify(S);$("bk").select()};
 $("rb").onclick=function(){try{var o=JSON.parse($("bk").value);if(!o.cfg||!o.days)throw 0;S=o;save();location.reload()}catch(e){$("bk").value="Backup inválido. Cole aqui o texto gerado antes."}};
 
 function refreshAll(){
  var ii=$("cf").querySelectorAll("input");for(var i=0;i<7;i++)ii[i].value=fm(S.cfg.exp[i]);
- $("ini").value=fm(S.cfg.init,true);renderToday();renderHist();
+ $("ini").value=fm(S.cfg.init,true);$("nm").value=S.cfg.name||"";renderToday();renderHist();
 }
 (async function(){
  try{
